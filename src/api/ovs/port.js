@@ -24,6 +24,10 @@ export function setPortVlanTag(data) {
   return request.post('/api/ovs/port/set-vlan', data)
 }
 
+export function setPortTypePeer(data) {
+  return request.post('/api/ovs/port/set-type-peer', data)
+}
+
 export function addTunnelPort(data) {
   return request.post('/api/ovs/tunnel/add', data)
 }
@@ -46,6 +50,10 @@ export function addTapPort(data) {
 
 export function addTunPort(data) {
   return request.post('/api/ovs/tun/add', data)
+}
+
+export function listAllPatchPorts(data = {}) {
+  return request.post('/api/ovs/port/patch-list', data)
 }
 
 // 其他端口相关接口可后续补充

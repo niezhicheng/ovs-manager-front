@@ -6,9 +6,12 @@
     </a-space>
     <a-table :columns="columns" :data="patchPortList" row-key="rowKey">
       <template #actions="{ record }">
-        <a-popconfirm content="确定要删除该 Patch Port 吗？" @ok="() => deletePatchPort(record)">
-          <a-button size="mini" status="danger">删除</a-button>
-        </a-popconfirm>
+        <a-space>
+          <a-popconfirm content="确定要删除该 Patch Port 吗？" @ok="() => deletePatchPort(record)">
+            <a-button size="mini" status="danger">删除</a-button>
+          </a-popconfirm>
+          <a-button size="mini" @click="openConvertPatchModal(record)">改为 Patch Port</a-button>
+        </a-space>
       </template>
     </a-table>
     <a-modal v-model:visible="showPatchPairModal" title="成对创建 Patch Port" @ok="addPatchPair">
@@ -33,17 +36,38 @@
         </a-form-item>
       </a-form>
     </a-modal>
+    <a-modal v-model:visible="showConvertPatchModal" title="改为 Patch Port" @ok="convertToPatchPort">
+      <a-form :model="convertPatchForm" ref="convertPatchFormRef">
+        <a-form-item label="当前 Bridge" field="bridge">
+          <a-input v-model="convertPatchForm.bridge" disabled />
+        </a-form-item>
+        <a-form-item label="当前端口名" field="name">
+          <a-input v-model="convertPatchForm.name" disabled />
+        </a-form-item>
+        <a-form-item label="对端 Bridge" field="peerBridge" :rules="[{ required: true, message: '请选择对端 Bridge' }]">
+          <a-select v-model="convertPatchForm.peerBridge" placeholder="请选择对端 Bridge">
+            <a-option v-for="(item,index) in bridgeList" :key="index" :value="item.name">{{ item.name }}</a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="对端端口名" field="peerName" :rules="[{ required: true, message: '请输入对端端口名' }]">
+          <a-input v-model="convertPatchForm.peerName" placeholder="请输入对端端口名" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { addPatchPortPair } from '@/api/ovs/port'
-import request from '@/utils/request'
+import { addPatchPortPair, setPortTypePeer, listAllPatchPorts } from '@/api/ovs/port'
 
 const showPatchPairModal = ref(false)
 const patchPairForm = ref({ bridgeA: '', portA: '', bridgeB: '', portB: '' })
 const patchPairFormRef = ref()
+
+const showConvertPatchModal = ref(false)
+const convertPatchForm = ref({ bridge: '', name: '', peerBridge: '', peerName: '' })
+const convertPatchFormRef = ref()
 
 const bridgeList = ref([])
 const portAList = ref([])
@@ -59,30 +83,12 @@ const columns = [
   { title: '操作', slotName: 'actions' }
 ]
 
-const rowKey = (record) => `${record.bridge}-${record.name}`
-
-const fetchBridgeList = async () => {
-  const bridgesRes = await request.post('/api/ovs/bridge/list')
-  bridgeList.value = bridgesRes.data?.bridges?.map(b => (typeof b === 'string' ? { name: b } : b)) || []
-}
-const fetchPortAList = async () => {
-  if (!patchPairForm.value.bridgeA) { portAList.value = []; return }
-  const portsRes = await request.post('/api/ovs/port/list', { bridge: patchPairForm.value.bridgeA })
-  portAList.value = (portsRes.data?.ports || []).map(p => p.name)
-}
-const fetchPortBList = async () => {
-  if (!patchPairForm.value.bridgeB) { portBList.value = []; return }
-  const portsRes = await request.post('/api/ovs/port/list', { bridge: patchPairForm.value.bridgeB })
-  portBList.value = (portsRes.data?.ports || []).map(p => p.name)
-}
 const onBridgeAChange = () => {
   patchPairForm.value.portA = ''
-  fetchPortAList()
   portAExists.value = false
 }
 const onBridgeBChange = () => {
   patchPairForm.value.portB = ''
-  fetchPortBList()
   portBExists.value = false
 }
 const onPortAInput = () => {
@@ -105,20 +111,8 @@ const validatePortB = async (value) => {
 }
 
 const fetchPatchPorts = async () => {
-  const bridgesRes = await request.post('/api/ovs/bridge/list')
-  const bridges = bridgesRes.data?.bridges?.map(b => (typeof b === 'string' ? { name: b } : b)) || []
-  const all = []
-  for (const bridgeObj of bridges) {
-    const bridge = bridgeObj.name
-    const portsRes = await request.post('/api/ovs/port/list', { bridge })
-    const ports = portsRes.data?.ports || []
-    ports.forEach(p => {
-      if (p.type === 'patch') {
-        all.push({ bridge, name: p.name, peer: p.options?.peer || '' })
-      }
-    })
-  }
-  patchPortList.value = all
+  const res = await listAllPatchPorts()
+  patchPortList.value = res.data?.patchPorts || []
 }
 
 const addPatchPair = async () => {
@@ -135,7 +129,37 @@ const deletePatchPort = async (record) => {
   fetchPatchPorts()
 }
 
+const openConvertPatchModal = (record) => {
+  convertPatchForm.value = {
+    bridge: record.bridge,
+    name: record.name,
+    peerBridge: '',
+    peerName: ''
+  }
+  showConvertPatchModal.value = true
+}
+
+const convertToPatchPort = async () => {
+  await convertPatchFormRef.value?.validate()
+  // 设置当前端口为 patch 类型并指定 peer
+  await setPortTypePeer({
+    bridge: convertPatchForm.value.bridge,
+    portName: convertPatchForm.value.name,
+    type: 'patch',
+    peer: convertPatchForm.value.peerName
+  })
+  // 设置对端端口为 patch 类型并指定 peer
+  await setPortTypePeer({
+    bridge: convertPatchForm.value.peerBridge,
+    portName: convertPatchForm.value.peerName,
+    type: 'patch',
+    peer: convertPatchForm.value.name
+  })
+  showConvertPatchModal.value = false
+  fetchPatchPorts()
+}
+
 showPatchPairModal.value = false
-fetchBridgeList()
+showConvertPatchModal.value = false
 fetchPatchPorts()
 </script>
