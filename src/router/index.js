@@ -13,25 +13,8 @@ export const routes = [
     component: () => import('@/views/login'),
     hidden: true
   },
-
   {
     path: '/',
-    component: Layout,
-    meta: { title: 'Example', icon: 'icon-apps' },
-    children: [{
-      name: 'table',
-      path: '/table',
-      component: () => import('@/views/table'),
-      meta: { title: 'table' }
-    }, {
-      name: 'form',
-      path: '/form',
-      component: () => import('@/views/form'),
-      meta: { title: 'form' }
-    }]
-  },
-  {
-    path: '/ovs',
     component: Layout,
     meta: { title: 'OVS 管理', icon: 'icon-apps' },
     children: [
@@ -46,6 +29,12 @@ export const routes = [
         path: 'port',
         component: () => import('@/views/ovs/port.vue'),
         meta: { title: '端口管理' }
+      },
+      {
+        name: 'ovs-patch-port',
+        path: 'patch-port',
+        component: () => import('@/views/ovs/patch-port.vue'),
+        meta: { title: 'Patch端口管理' }
       },
       {
         name: 'ovs-mirror',
@@ -85,17 +74,6 @@ export const routes = [
       }
     ]
   },
-  {
-    path: '/editor',
-    component: Layout,
-    children: [{
-      path: '',
-      name: 'editor',
-      component: () => import('@/views/editor'),
-      meta: { title: 'editor', icon: 'icon-edit' }
-    }]
-  },
-
   {
     path: '/:catchAll(.*)',
     redirect: '/404',
