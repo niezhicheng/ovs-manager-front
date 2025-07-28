@@ -2,7 +2,7 @@ import axios from 'axios'
 import { Message } from '@arco-design/web-vue'
 
 const service = axios.create({
-  baseURL: import.meta.env.VITE_HOST
+  baseURL: "http://192.168.1.32:8080"
 })
 
 service.interceptors.response.use(
