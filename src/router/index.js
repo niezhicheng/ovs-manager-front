@@ -71,6 +71,12 @@ export const routes = [
         path: 'netns',
         component: () => import('@/views/ovs/netns.vue'),
         meta: { title: '网络命名空间' }
+      },
+      {
+        name: 'ovs-ion-sfu-demo',
+        path: 'ion-sfu-demo',
+        component: () => import('@/views/ovs/livekit-demo.vue'),
+        meta: { title: 'ion-sfu Demo' }
       }
     ]
   },
