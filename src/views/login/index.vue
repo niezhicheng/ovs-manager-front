@@ -75,7 +75,7 @@ const handleSubmit = async () => {
   setLoading(false)
 
   if (result) {
-    await router.push({ name: 'table' })
+    await router.push({ path: '/' })
   }
 }
 </script>

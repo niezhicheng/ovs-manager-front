@@ -42,7 +42,7 @@ let room = null;
 const joinRoom = async () => {
   if (joined.value) return;
   // 1. 自动请求后端获取 Token
-  const resp = await fetch(`http://172.18.10.207:3000/api/livekit/token?room=${roomId.value}&identity=${sid.value}`);
+  const resp = await fetch(`http://127.0.0.1:3000/api/livekit/token?room=${roomId.value}&identity=${sid.value}`);
   const { token: livekitToken } = await resp.json();
 
   // 2. 创建 Room 实例并连接
@@ -57,6 +57,7 @@ const joinRoom = async () => {
     document.getElementById('localVideo').srcObject = stream;
   } else if (role.value === 'teacher') {
     room.on('trackSubscribed', (track, publication, participant) => {
+      console.log(track)
       if (track.kind === 'video') {
         // 检查是否已存在该流的 video
         let exists = remoteStreams.find(item => item.id === participant.identity);
@@ -70,6 +71,22 @@ const joinRoom = async () => {
           }, 0);
         }
       }
+    });
+    // 处理已存在的参与者和 track（关键！）
+    room.participants.forEach((participant) => {
+      participant.tracks.forEach((publication) => {
+        if (publication.isSubscribed && publication.track.kind === 'video') {
+          let exists = remoteStreams.find(item => item.id === participant.identity);
+          if (!exists) {
+            const newStream = new MediaStream([publication.track.mediaStreamTrack]);
+            remoteStreams.push({ id: participant.identity, stream: newStream });
+            setTimeout(() => {
+              let v = document.getElementById(participant.identity);
+              if (v) v.srcObject = newStream;
+            }, 0);
+          }
+        }
+      });
     });
   }
   joined.value = true;
