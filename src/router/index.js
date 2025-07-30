@@ -73,10 +73,16 @@ export const routes = [
         meta: { title: '网络命名空间' }
       },
       {
-        name: 'ovs-ion-sfu-demo',
-        path: 'ion-sfu-demo',
+        name: 'ovs-livekit-demo',
+        path: 'livekit-demo',
         component: () => import('@/views/ovs/livekit-demo.vue'),
-        meta: { title: 'ion-sfu Demo' }
+        meta: { title: 'LiveKit Demo' }
+      },
+      {
+        name: 'ovs-network-devices',
+        path: 'network-devices',
+        component: () => import('@/views/ovs/network-devices.vue'),
+        meta: { title: '网络设备虚拟化' }
       }
     ]
   },

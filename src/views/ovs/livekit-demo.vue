@@ -29,41 +29,91 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
-import { Room, createLocalVideoTrack } from 'livekit-client';
+import { Room } from 'livekit-client';
 
 const role = ref('student');
 const roomId = ref('');
 const sid = ref('');
 const joined = ref(false);
 const remoteStreams = reactive([]);
-const remoteVideos = ref([]);
 let room = null;
 
-const joinRoom = async () => {
-  if (joined.value) return;
-  // 1. 自动请求后端获取 Token
-  const resp = await fetch(`http://172.18.10.207:3000/api/livekit/token?room=${roomId.value}&identity=${sid.value}`);
-  const { token: livekitToken } = await resp.json();
+// 自动订阅并渲染所有远端 video track
+function setupRoomEvents(room) {
+  // 监听 trackSubscribed 事件
+  room.on('trackSubscribed', (track, publication, participant) => {
+    console.log('【老师端】trackSubscribed', participant.identity, track);
+    console.log('【老师端】trackSubscribed - participant.isLocal:', participant.isLocal);
+    console.log('【老师端】trackSubscribed - track.kind:', track.kind);
+    
+    if (track.kind === 'video') {
+      let exists = remoteStreams.find(item => item.id === participant.identity);
+      if (!exists) {
+        console.log('【老师端】Creating new stream for participant:', participant.identity);
+        const newStream = new MediaStream([track.mediaStreamTrack]);
+        remoteStreams.push({ id: participant.identity, stream: newStream });
+        setTimeout(() => {
+          let v = document.getElementById(participant.identity);
+          if (v) {
+            v.srcObject = newStream;
+            console.log('【老师端】Set srcObject for video element:', participant.identity);
+          } else {
+            console.log('【老师端】Video element not found for:', participant.identity);
+          }
+        }, 0);
+      } else {
+        console.log('【老师端】Stream already exists for participant:', participant.identity);
+      }
+    }
+  });
 
-  // 2. 创建 Room 实例并连接
-  room = new Room();
-  await room.connect(`ws://47.120.36.189:7880`, livekitToken);
+  // 监听 trackUnsubscribed，移除流
+  room.on('trackUnsubscribed', (track, publication, participant) => {
+    if (track.kind === 'video') {
+      const idx = remoteStreams.findIndex(item => item.id === participant.identity);
+      if (idx !== -1) remoteStreams.splice(idx, 1);
+    }
+  });
 
-  if (role.value === 'student') {
-    // 屏幕共享
-    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-    const [track] = stream.getVideoTracks();
-    await room.localParticipant.publishTrack(track, { name: 'screen' });
-    document.getElementById('localVideo').srcObject = stream;
-  } else if (role.value === 'teacher') {
-    room.on('trackSubscribed', (track, publication, participant) => {
-      if (track.kind === 'video') {
-        // 检查是否已存在该流的 video
+  // 监听 participantConnected
+  room.on('participantConnected', (participant) => {
+    console.log('【老师端】participantConnected', participant.identity);
+    subscribeToParticipantTracks(participant);
+  });
+
+  // 监听 participantDisconnected
+  room.on('participantDisconnected', (participant) => {
+    console.log('【老师端】participantDisconnected', participant.identity);
+    const idx = remoteStreams.findIndex(item => item.id === participant.identity);
+    if (idx !== -1) remoteStreams.splice(idx, 1);
+  });
+}
+
+// 订阅参与者的所有 tracks
+function subscribeToParticipantTracks(participant) {
+  console.log('【老师端】subscribeToParticipantTracks for', participant.identity);
+  console.log('【老师端】participant.isLocal:', participant.isLocal);
+  
+  // 直接使用 videoTrackPublications Map
+  const videoPublications = participant.videoTrackPublications;
+  console.log('【老师端】videoPublications:', videoPublications);
+  
+  if (videoPublications && videoPublications.size > 0) {
+    videoPublications.forEach((publication) => {
+      console.log('【老师端】processing video publication:', publication);
+      console.log('【老师端】publication.isSubscribed:', publication.isSubscribed);
+      console.log('【老师端】publication.track:', publication.track);
+      
+      if (!publication.isSubscribed) {
+        console.log('【老师端】Subscribing to publication...');
+        publication.subscribe();
+      } else if (publication.track) {
+        console.log('【老师端】Publication already subscribed, rendering track...');
+        // 如果已经订阅了，直接渲染
         let exists = remoteStreams.find(item => item.id === participant.identity);
         if (!exists) {
-          const newStream = new MediaStream([track.mediaStreamTrack]);
+          const newStream = new MediaStream([publication.track.mediaStreamTrack]);
           remoteStreams.push({ id: participant.identity, stream: newStream });
-          // 等 DOM 渲染后再赋值
           setTimeout(() => {
             let v = document.getElementById(participant.identity);
             if (v) v.srcObject = newStream;
@@ -71,8 +121,66 @@ const joinRoom = async () => {
         }
       }
     });
+  } else {
+    console.log('【老师端】No video publications found for', participant.identity);
   }
-  joined.value = true;
+}
+
+const joinRoom = async () => {
+  if (joined.value) return;
+  
+  try {
+    // 1. 获取 Token
+    const resp = await fetch(`http://172.18.10.207:3000/api/livekit/token?room=${roomId.value}&identity=${sid.value}`);
+    const { token: livekitToken } = await resp.json();
+
+    // 2. 创建 Room 实例并连接
+    room = new Room();
+    await room.connect(`ws://47.120.36.189:7880`, livekitToken);
+    console.log('【通用】Connected to room:', room.name);
+
+    if (role.value === 'student') {
+      // 学生端：屏幕共享
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: true, 
+          audio: false 
+        });
+        console.log('【学生端】getDisplayMedia success:', stream);
+        
+        const [track] = stream.getVideoTracks();
+        await room.localParticipant.publishTrack(track, { name: 'screen' });
+        console.log('【学生端】publishTrack success');
+        
+        document.getElementById('localVideo').srcObject = stream;
+      } catch (e) {
+        console.error('【学生端】Error:', e);
+        alert('获取屏幕共享失败: ' + e.message);
+      }
+    } else if (role.value === 'teacher') {
+      // 老师端：设置事件监听
+      setupRoomEvents(room);
+      
+      // 处理已存在的参与者
+      if (room.remoteParticipants && room.remoteParticipants.size > 0) {
+        console.log('【老师端】Found existing participants:', room.remoteParticipants.size);
+        console.log('【老师端】Current user identity:', room.localParticipant.identity);
+        room.remoteParticipants.forEach((participant) => {
+          console.log('【老师端】Existing participant:', participant.identity);
+          console.log('【老师端】Participant isLocal:', participant.isLocal);
+          console.log('【老师端】Participant videoTrackPublications:', participant.videoTrackPublications);
+          subscribeToParticipantTracks(participant);
+        });
+      } else {
+        console.log('【老师端】No existing participants');
+      }
+    }
+    
+    joined.value = true;
+  } catch (error) {
+    console.error('【通用】Join room error:', error);
+    alert('加入房间失败: ' + error.message);
+  }
 };
 </script>
 

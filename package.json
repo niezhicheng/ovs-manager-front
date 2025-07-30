@@ -7,12 +7,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vue-flow/core": "^1.45.0",
     "axios": "^0.26.1",
     "codemirror": "^5.65.15",
     "highlight.js": "^11.8.0",
     "ion-sdk-js": "^1.8.2",
     "js-cookie": "^3.0.5",
-    "livekit-client": "^2.15.3",
+    "livekit-client": "^2.14.0",
     "marked": "^4.3.0",
     "simplemde": "^1.11.2",
     "vue": "^3.3.4",

@@ -1,0 +1,24 @@
+# 创建录制目录
+mkdir recordings
+
+# 启动服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+
+ 要么就用sdk
+# 启动房间录制
+curl -X POST http://localhost:8080/egress/room/composite/start \
+  -H "Authorization: Bearer <你的API JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "room_name": "test-room",
+    "file_outputs": [
+      {
+        "file_type": "mp4",
+        "filepath": "/out/test-recording.mp4"
+      }
+    ]
+  }'
