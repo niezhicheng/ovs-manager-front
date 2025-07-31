@@ -38,7 +38,7 @@ const columns = [
 
 const fetchNetns = async () => {
   const res = await listNetns()
-  netnsList.value = res.data?.netns || []
+  netnsList.value = (res.data?.netns || []).map(name => ({ name }))
 }
 
 const addNetns = async () => {
