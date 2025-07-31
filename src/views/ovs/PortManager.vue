@@ -17,8 +17,8 @@
         </template>
         <template #actions="{ record }">
           <a-space>
-            <a-button size="mini" @click="openConfigModal(record)">配置</a-button>
-            <a-button size="mini" @click="openAliasModal(record)">设置别名</a-button>
+            <a-button size="mini" type="primary" @click="openConfigModal(record)">配置</a-button>
+            <a-button size="mini" @click="openAliasModal(record)">别名</a-button>
             <a-button size="mini" status="danger" @click="deletePort(record)">删除</a-button>
           </a-space>
         </template>
@@ -28,13 +28,13 @@
       <a-form :model="addForm" ref="addFormRef">
         <a-form-item label="类型" field="type">
           <a-select v-model="addForm.type" placeholder="请选择端口类型" allow-clear>
-            <a-option value="normal">normal</a-option>
-            <a-option value="internal">internal</a-option>
-            <a-option value="gre">gre</a-option>
-            <a-option value="vxlan">vxlan</a-option>
-            <a-option value="geneve">geneve</a-option>
-            <a-option value="tap">tap</a-option>
-            <a-option value="tun">tun</a-option>
+            <a-option value="normal">normal - 普通端口（最常用）</a-option>
+            <a-option value="internal">internal - 内部端口</a-option>
+            <a-option value="vxlan">vxlan - VXLAN隧道</a-option>
+            <a-option value="gre">gre - GRE隧道</a-option>
+            <a-option value="geneve">geneve - Geneve隧道</a-option>
+            <a-option value="tap">tap - TAP设备</a-option>
+            <a-option value="tun">tun - TUN设备</a-option>
           </a-select>
         </a-form-item>
         <a-form-item v-if="addForm.type === 'normal'" label="端口名称" field="portName" :rules="[{ required: true, message: '请输入端口名称' }]">

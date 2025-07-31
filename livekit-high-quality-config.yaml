@@ -1,0 +1,235 @@
+# LiveKit 超高清监考模式配置文件
+# 用于优化视频质量，适合监考场景 - 超高清版本
+
+# 服务器基础配置
+port: 7880
+rtc:
+  # WebRTC 配置
+  tcp_port: 7881
+  port_range_start: 7882
+  port_range_end: 8000
+  
+  # 视频编码配置
+  video_codec:
+    # 优先使用 H.264 编码，兼容性更好
+    preferred_codec: "h264"
+    # 备用编码
+    fallback_codec: "vp8"
+    # 启用高质量编码
+    h264_profile: "high"
+    h264_level: "4.2"
+  
+  # 超高清视频质量配置
+  video:
+    # 最大分辨率 - 支持4K
+    max_resolution: "4k"
+    # 最大帧率
+    max_framerate: 60
+    # 最大码率 (bps) - 支持超高码率
+    max_bitrate: 15000000  # 15Mbps for 4K
+    # 最小码率
+    min_bitrate: 2000000   # 2Mbps minimum
+    # 目标码率
+    target_bitrate: 8000000  # 8Mbps target
+    
+  # 音频配置
+  audio:
+    # 音频编码
+    codec: "opus"
+    # 音频质量
+    bitrate: 128000  # 128kbps for high quality
+    # 采样率
+    sample_rate: 48000
+    # 声道数
+    channels: 2
+    
+  # 网络配置
+  network:
+    # 启用自适应码率
+    adaptive_stream: true
+    # 启用多流编码 (Simulcast)
+    simulcast: true
+    # 启用动态质量调整
+    dynacast: true
+    # 网络质量检测间隔
+    quality_check_interval: "3s"
+    # 带宽估计
+    bandwidth_estimation: true
+    # 拥塞控制
+    congestion_control: true
+    
+  # 缓冲区配置
+  buffer:
+    # 视频缓冲区大小 - 增加缓冲区
+    video_buffer_size: 2000
+    # 音频缓冲区大小
+    audio_buffer_size: 1000
+    # 网络缓冲区
+    network_buffer_size: 5000
+    
+# 录制配置
+recording:
+  # 启用录制
+  enabled: true
+  # 录制格式
+  format: "mp4"
+  # 录制质量
+  quality: "ultra_high"
+  # 录制分辨率
+  resolution: "4k"
+  # 录制帧率
+  framerate: 60
+  # 录制码率
+  bitrate: 15000000  # 15Mbps for 4K recording
+  
+# 房间配置
+room:
+  # 最大参与者数
+  max_participants: 50
+  # 房间超时时间
+  timeout: "30m"
+  # 启用房间持久化
+  persistence: true
+  # 启用房间质量监控
+  quality_monitoring: true
+  
+# 监控配置
+monitoring:
+  # 启用性能监控
+  enabled: true
+  # 监控间隔
+  interval: "5s"
+  # 启用详细日志
+  verbose: true
+  # 启用质量指标
+  quality_metrics: true
+  
+# 安全配置
+security:
+  # API 密钥
+  api_key: "devkey"
+  api_secret: "secret"
+  # 启用 TLS
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+    
+# 日志配置
+log:
+  # 日志级别
+  level: "info"
+  # 日志格式
+  format: "json"
+  # 启用结构化日志
+  structured: true
+  # 启用性能日志
+  performance: true
+  
+# 性能优化配置
+performance:
+  # 启用硬件加速
+  hardware_acceleration: true
+  # 启用 GPU 编码
+  gpu_encoding: true
+  # 启用多线程处理
+  multi_threading: true
+  # 内存限制 - 增加内存
+  memory_limit: "4GB"
+  # CPU 限制 - 增加CPU
+  cpu_limit: "8"
+  # 启用CPU亲和性
+  cpu_affinity: true
+  # 启用内存预分配
+  memory_preallocation: true
+  
+# 网络优化配置
+network_optimization:
+  # 启用 TCP 优化
+  tcp_optimization: true
+  # 启用 UDP 优化
+  udp_optimization: true
+  # 启用带宽估计
+  bandwidth_estimation: true
+  # 启用拥塞控制
+  congestion_control: true
+  # 启用丢包恢复
+  packet_loss_recovery: true
+  # 启用网络质量自适应
+  network_adaptation: true
+  # 启用QoS
+  qos_enabled: true
+  
+# 监考专用配置 - 超高清版本
+proctoring:
+  # 启用超高清模式
+  ultra_hd_mode: true
+  # 最小分辨率
+  min_resolution: "1080p"
+  # 目标分辨率
+  target_resolution: "4k"
+  # 目标帧率
+  target_framerate: 60
+  # 目标码率
+  target_bitrate: 15000000  # 15Mbps
+  # 启用屏幕共享优化
+  screen_share_optimization: true
+  # 启用面部检测
+  face_detection: false
+  # 启用行为分析
+  behavior_analysis: false
+  # 启用质量监控
+  quality_monitoring: true
+  # 启用自动质量调整
+  auto_quality_adjustment: true
+  
+# 编码器配置
+encoder:
+  # 启用硬件编码器
+  hardware_encoder: true
+  # 编码器类型
+  encoder_type: "h264_nvenc"  # NVIDIA GPU
+  # 备用编码器
+  fallback_encoder: "h264_amf"  # AMD GPU
+  # 软件编码器
+  software_encoder: "h264"
+  # 编码预设
+  preset: "slow"  # 高质量编码
+  # 编码配置文件
+  profile: "high"
+  # 编码级别
+  level: "4.2"
+  # 启用B帧
+  b_frames: true
+  # 启用参考帧
+  ref_frames: 4
+  # 启用去块滤波
+  deblocking: true
+  
+# 质量优化配置
+quality_optimization:
+  # 启用锐化
+  sharpening: true
+  # 启用降噪
+  denoising: true
+  # 启用色彩增强
+  color_enhancement: true
+  # 启用对比度增强
+  contrast_enhancement: true
+  # 启用细节增强
+  detail_enhancement: true
+  # 启用边缘增强
+  edge_enhancement: true
+  
+# 网络质量配置
+network_quality:
+  # 启用网络质量监控
+  monitoring: true
+  # 质量阈值
+  quality_threshold: 0.8
+  # 自动调整间隔
+  adjustment_interval: "5s"
+  # 启用预测性调整
+  predictive_adjustment: true
+  # 启用历史数据分析
+  historical_analysis: true 

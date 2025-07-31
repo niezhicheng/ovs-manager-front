@@ -37,12 +37,6 @@ export const routes = [
         meta: { title: 'Patch端口管理' }
       },
       {
-        name: 'ovs-mirror',
-        path: 'mirror',
-        component: () => import('@/views/ovs/mirror.vue'),
-        meta: { title: '镜像管理' }
-      },
-      {
         name: 'ovs-flow',
         path: 'flow',
         component: () => import('@/views/ovs/flow.vue'),
@@ -77,6 +71,12 @@ export const routes = [
         path: 'livekit-demo',
         component: () => import('@/views/ovs/livekit-demo.vue'),
         meta: { title: 'LiveKit Demo' }
+      },
+      {
+        name: 'ovs-livekit1-demo',
+        path: 'livekit-demo1',
+        component: () => import('@/views/ovs/livekit-demo-simple.vue'),
+        meta: { title: 'LiveKit simple Demo' }
       },
       {
         name: 'ovs-network-devices',
