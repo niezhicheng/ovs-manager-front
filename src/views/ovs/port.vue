@@ -29,7 +29,6 @@
         <a-space>
             <a-button size="mini" status="danger" @click="deletePort(record)">删除</a-button>
             <a-button size="mini" @click="showPortInfo(record)">详情</a-button>
-            <a-button size="mini" @click="openMirrorModal">镜像</a-button>
         </a-space>
       </template>
     </a-table>
@@ -104,32 +103,7 @@
       <a-descriptions :data="portInfoData" layout="vertical" bordered />
     </a-modal>
 
-    <!-- 镜像配置模态框 -->
-    <a-modal v-model:visible="showMirrorModal" title="镜像配置" @ok="saveMirrorConfig">
-      <a-form :model="mirrorForm">
-        <a-form-item label="名称" field="name" required>
-          <a-input v-model="mirrorForm.name" />
-        </a-form-item>
-        <a-form-item label="源端口" field="selectSrcPorts">
-          <a-input v-model="mirrorForm.selectSrcPorts" placeholder="多个用逗号分隔" />
-        </a-form-item>
-        <a-form-item label="目的端口" field="selectDstPorts">
-          <a-input v-model="mirrorForm.selectDstPorts" placeholder="多个用逗号分隔" />
-        </a-form-item>
-        <a-form-item label="VLAN" field="selectVlan">
-          <a-input-number v-model="mirrorForm.selectVlan" :min="1" :max="4094" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="输出端口" field="outputPort">
-          <a-input v-model="mirrorForm.outputPort" />
-        </a-form-item>
-        <a-form-item label="输出VLAN" field="outputVlan">
-          <a-input-number v-model="mirrorForm.outputVlan" :min="1" :max="4094" style="width: 100%" />
-        </a-form-item>
-        <a-form-item label="全选" field="selectAll">
-          <a-switch v-model="mirrorForm.selectAll" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+
   </a-card>
 </template>
 
@@ -150,7 +124,7 @@ import { addVxlan as apiAddVxlan } from '@/api/ovs/vxlan'
 import { addPatchPort, addPatchPortWithoutPeer, setPatchPortPeer } from '@/api/ovs/port'
 import { addBond } from '@/api/ovs/bond'
 import { Message } from '@arco-design/web-vue'
-import { listMirrors, addMirror as apiAddMirror } from '@/api/ovs/mirror'
+
 
 const portList = ref([])
 const bridgeList = ref([])
@@ -365,75 +339,7 @@ const getPortTypeColor = (type) => {
   return colorMap[type] || 'pinkpurple'
 }
 
-const showMirrorModal = ref(false)
-const mirrorForm = ref({
-  name: '',
-  selectSrcPorts: '',
-  selectDstPorts: '',
-  selectVlan: undefined,
-  outputPort: '',
-  outputVlan: undefined,
-  selectAll: false
-})
 
-const openMirrorModal = async () => {
-  // 获取当前bridge的镜像配置
-  const res = await listMirrors({ bridge: selectedBridge.value })
-  const mirrors = parseMirrorOutput(res.data?.output)
-  if (mirrors.length > 0) {
-    Object.assign(mirrorForm.value, mirrors[0])
-  } else {
-    Object.assign(mirrorForm.value, {
-      name: '', selectSrcPorts: '', selectDstPorts: '', selectVlan: undefined, outputPort: '', outputVlan: undefined, selectAll: false
-    })
-  }
-  showMirrorModal.value = true
-}
-
-const saveMirrorConfig = async () => {
-  const data = {
-    bridge: selectedBridge.value,
-    name: mirrorForm.value.name,
-    selectSrcPorts: mirrorForm.value.selectSrcPorts ? mirrorForm.value.selectSrcPorts.split(',').map(s => s.trim()).filter(Boolean) : [],
-    selectDstPorts: mirrorForm.value.selectDstPorts ? mirrorForm.value.selectDstPorts.split(',').map(s => s.trim()).filter(Boolean) : [],
-    selectVlan: mirrorForm.value.selectVlan,
-    outputPort: mirrorForm.value.outputPort,
-    outputVlan: mirrorForm.value.outputVlan,
-    selectAll: mirrorForm.value.selectAll
-  }
-  await apiAddMirror(data)
-  showMirrorModal.value = false
-}
-
-function parseMirrorOutput(output) {
-  if (!output) return [];
-  let blocks;
-  if (/^name\s*:/.test(output.trim())) {
-    blocks = output.split(/\n(?=name\s*:)/).filter(Boolean);
-  } else {
-    blocks = [output];
-  }
-  const mirrors = [];
-  for (const block of blocks) {
-    const obj = {};
-    block.split('\n').forEach(line => {
-      const [k, ...rest] = line.split(':');
-      if (!k || rest.length === 0) return;
-      const key = k.trim();
-      const value = rest.join(':').trim();
-      obj[key] = value;
-    });
-    obj.name = obj['name'] || '';
-    obj.selectSrcPorts = obj['select_src_port'] || '';
-    obj.selectDstPorts = obj['select_dst_port'] || '';
-    obj.selectVlan = obj['select_vlan'] || '';
-    obj.outputPort = obj['output_port'] || '';
-    obj.outputVlan = obj['output_vlan'] || '';
-    obj.selectAll = obj['select_all'] === 'true' || obj['select_all'] === true;
-    mirrors.push(obj);
-  }
-  return mirrors;
-}
 
 onMounted(() => {
   fetchBridges()
