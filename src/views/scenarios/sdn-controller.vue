@@ -1,5 +1,13 @@
 <template>
   <a-card title="SDN控制器配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="配置控制器" description="配置SDN控制器参数" />
       <a-step title="配置交换机" description="配置OpenFlow交换机" />
@@ -109,15 +117,117 @@
       <a-button v-if="currentStep < 3" type="primary" @click="nextStep">下一步</a-button>
       <a-button type="primary" style="float:right" @click="applyScenario">应用配置</a-button>
     </div>
+
+    <!-- 帮助弹窗 -->
+    <a-modal
+      v-model:visible="helpVisible"
+      title="SDN控制器配置 - 原理与命令"
+      width="800px"
+      :footer="null"
+    >
+      <div class="help-content">
+        <h3>🎯 场景原理</h3>
+        <p>SDN控制器是软件定义网络的核心组件，通过OpenFlow协议控制网络设备，实现网络的可编程化和集中化管理。控制器负责网络拓扑发现、流表下发、应用管理和网络策略执行。</p>
+        
+        <h3>🔧 核心概念</h3>
+        <ul>
+          <li><strong>SDN控制器</strong>：网络控制平面，负责网络决策</li>
+          <li><strong>OpenFlow协议</strong>：控制器与交换机间的通信协议</li>
+          <li><strong>流表</strong>：交换机中的数据包转发规则</li>
+          <li><strong>SDN应用</strong>：运行在控制器上的网络应用</li>
+        </ul>
+
+        <h3>📋 命令示例</h3>
+        <div class="command-section">
+          <h4>1. 启动SDN控制器</h4>
+          <pre class="command"># 启动Ryu控制器
+ryu-manager --verbose --log-level=INFO ryu.app.simple_switch_13
+
+# 启动Floodlight控制器
+java -jar floodlight.jar
+
+# 启动ONOS控制器
+./bin/onos-service server
+
+# 启动OpenDaylight控制器
+./bin/karaf</pre>
+
+          <h4>2. 配置Open vSwitch</h4>
+          <pre class="command"># 启动Open vSwitch
+systemctl start openvswitch
+systemctl enable openvswitch
+
+# 创建网桥并连接控制器
+ovs-vsctl add-br br0
+ovs-vsctl set-controller br0 tcp:192.168.1.100:6633
+ovs-vsctl set bridge br0 protocols=OpenFlow13
+
+# 查看控制器连接状态
+ovs-vsctl show</pre>
+
+          <h4>3. 配置流表规则</h4>
+          <pre class="command"># 添加流表规则
+ovs-ofctl add-flow br0 "table=0, priority=100, in_port=1, actions=output:2"
+
+# 查看流表规则
+ovs-ofctl dump-flows br0
+
+# 删除流表规则
+ovs-ofctl del-flows br0 "table=0, in_port=1"
+
+# 清空流表
+ovs-ofctl del-flows br0</pre>
+
+          <h4>4. 测试控制器连接</h4>
+          <pre class="command"># 测试控制器连接
+ovs-vsctl show
+
+# 查看端口状态
+ovs-ofctl show br0
+
+# 查看流表统计
+ovs-ofctl dump-flows br0
+
+# 查看端口统计
+ovs-ofctl dump-ports br0</pre>
+        </div>
+
+        <h3>🚀 操作步骤</h3>
+        <ol>
+          <li><strong>配置控制器</strong>：设置控制器类型、地址和协议版本</li>
+          <li><strong>配置交换机</strong>：设置交换机连接和流表容量</li>
+          <li><strong>部署应用</strong>：配置SDN应用和优先级</li>
+          <li><strong>测试连接</strong>：验证控制器和交换机连接</li>
+        </ol>
+
+        <h3>⚠️ 注意事项</h3>
+        <ul>
+          <li>控制器和交换机协议版本要匹配</li>
+          <li>网络连接要稳定可靠</li>
+          <li>流表容量要考虑交换机性能</li>
+          <li>应用优先级要合理设置</li>
+        </ul>
+
+        <h3>🔗 实际应用</h3>
+        <ul>
+          <li><strong>网络虚拟化</strong>：实现多租户网络隔离</li>
+          <li><strong>流量工程</strong>：优化网络路径和负载均衡</li>
+          <li><strong>安全策略</strong>：实现细粒度访问控制</li>
+          <li><strong>网络监控</strong>：实时监控网络状态和性能</li>
+        </ul>
+      </div>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconQuestionCircle } from '@arco-design/web-vue/es/icon'
 
 const currentStep = ref(0)
 const testResults = ref('')
+const helpVisible = ref(false)
 const controllerForm = reactive({ type: 'ryu', address: '192.168.1.100', port: 6633, protocol: '1.3', auth: 'none' })
 const switchForm = reactive({ name: 'switch1', type: 'ovs', mode: 'active', portCount: 8, flowTableSize: 1000 })
 const appForm = reactive({ name: 'learning-switch', type: 'learning', priority: 50, autoStart: true, parameters: '--verbose --log-level=INFO' })
@@ -125,6 +235,7 @@ const appForm = reactive({ name: 'learning-switch', type: 'learning', priority: 
 const nextStep = () => { if (currentStep.value < 3) currentStep.value++ }
 const prevStep = () => { if (currentStep.value > 0) currentStep.value-- }
 const applyScenario = async () => { Message.success('SDN控制器配置已应用') }
+const showHelp = () => { helpVisible.value = true }
 const testControllerConnection = () => { testResults.value = '控制器连接测试:\n控制器类型: Ryu\n地址: 192.168.1.100:6633\n协议版本: OpenFlow 1.3\n连接状态: 成功\n认证状态: 通过\n控制器状态: 运行中' }
 const testSwitchConnection = () => { testResults.value = '交换机连接测试:\n交换机名称: switch1\n类型: Open vSwitch\n连接模式: 主动模式\n端口数量: 8\n流表容量: 1000\n连接状态: 已连接\n流表规则: 5条' }
 const testApplication = () => { testResults.value = '应用功能测试:\n应用名称: learning-switch\n类型: 学习交换机\n优先级: 50\n状态: 运行中\n功能测试: 通过\n流量处理: 正常\nMAC学习: 正常' }
@@ -136,4 +247,11 @@ const testApplication = () => { testResults.value = '应用功能测试:\n应用
 .step-actions { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
 .test-results { margin-top: 20px; padding: 15px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e1e4e8; }
 .test-results pre { margin: 0; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; }
+.help-content { max-height: 600px; overflow-y: auto; }
+.help-content h3 { color: #1890ff; margin-top: 20px; margin-bottom: 10px; }
+.help-content h4 { color: #52c41a; margin-top: 15px; margin-bottom: 8px; }
+.help-content ul, .help-content ol { margin-left: 20px; }
+.help-content li { margin-bottom: 5px; }
+.command-section { margin: 15px 0; }
+.command { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4; }
 </style> 

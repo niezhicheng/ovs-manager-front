@@ -1,5 +1,13 @@
 <template>
   <a-card title="网络监控配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="选择监控类型" description="选择网络监控类型" />
       <a-step title="配置收集器" description="配置监控数据收集器" />

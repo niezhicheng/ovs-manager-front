@@ -1,5 +1,13 @@
 <template>
-  <a-card title="Patch 端口连接" class="scenario-card">
+  <a-card title="补丁端口配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="选择网桥" description="选择要连接的网桥" />
       <a-step title="创建Patch端口" description="创建Patch端口对" />

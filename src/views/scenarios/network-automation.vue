@@ -1,5 +1,13 @@
 <template>
   <a-card title="网络自动化配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="配置模板" description="创建配置模板" />
       <a-step title="配置策略" description="设置自动化策略" />

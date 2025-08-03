@@ -1,5 +1,13 @@
 <template>
-  <a-card title="LiveKit 监考系统" class="scenario-card">
+  <a-card title="LiveKit监考配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="配置LiveKit服务" description="设置LiveKit服务器参数" />
       <a-step title="创建监考房间" description="创建在线监考房间" />

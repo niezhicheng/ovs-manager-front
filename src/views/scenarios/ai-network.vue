@@ -1,5 +1,13 @@
 <template>
   <a-card title="AI网络配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="配置AI集群" description="配置AI训练集群网络" />
       <a-step title="配置数据管道" description="配置数据流管道" />
@@ -145,15 +153,113 @@
       <a-button v-if="currentStep < 3" type="primary" @click="nextStep">下一步</a-button>
       <a-button type="primary" style="float:right" @click="applyScenario">应用配置</a-button>
     </div>
+
+    <!-- 帮助弹窗 -->
+    <a-modal
+      v-model:visible="helpVisible"
+      title="AI网络配置 - 原理与命令"
+      width="800px"
+      :footer="null"
+    >
+      <div class="help-content">
+        <h3>🎯 场景原理</h3>
+        <p>AI网络配置专门为人工智能和机器学习工作负载优化，通过RDMA网络、高带宽连接和智能负载均衡来支持大规模AI训练和推理任务。AI网络需要处理大量数据传输、GPU间通信和模型服务部署。</p>
+        
+        <h3>🔧 核心概念</h3>
+        <ul>
+          <li><strong>RDMA网络</strong>：远程直接内存访问，绕过操作系统内核，实现低延迟数据传输</li>
+          <li><strong>AI集群</strong>：专门用于AI训练和推理的GPU/CPU节点集合</li>
+          <li><strong>数据管道</strong>：用于AI模型训练和推理的数据流处理系统</li>
+          <li><strong>模型服务</strong>：部署和运行AI模型的推理服务</li>
+        </ul>
+
+        <h3>📋 命令示例</h3>
+        <div class="command-section">
+          <h4>1. 配置RDMA网络</h4>
+          <pre class="command"># 启用RDMA功能
+modprobe rdma_ucm
+modprobe ib_uverbs
+
+# 配置RoCE网络
+ip link set dev eth0 type ethernet speed 100000 duplex full
+ethtool -G eth0 rx 4096 tx 4096
+
+# 配置RDMA子网管理器
+systemctl start opensm
+systemctl enable opensm</pre>
+
+          <h4>2. 创建AI集群网络</h4>
+          <pre class="command"># 创建AI专用网桥
+ovs-vsctl add-br ai-bridge
+ovs-vsctl set bridge ai-bridge protocols=OpenFlow13
+
+# 配置GPU节点网络
+ovs-vsctl add-port ai-bridge gpu-node1 -- set interface gpu-node1 type=internal
+ip addr add 10.0.1.1/24 dev gpu-node1
+
+# 配置CPU节点网络
+ovs-vsctl add-port ai-bridge cpu-node1 -- set interface cpu-node1 type=internal
+ip addr add 10.0.2.1/24 dev cpu-node1</pre>
+
+          <h4>3. 配置数据管道</h4>
+          <pre class="command"># 配置数据存储网络
+ovs-vsctl add-port ai-bridge data-storage -- set interface data-storage type=internal
+ip addr add 10.0.3.1/24 dev data-storage
+
+# 配置数据传输QoS
+ovs-vsctl set port data-storage qos=@qos1
+ovs-vsctl -- --id=@qos1 create qos type=linux-htb queues=0=@q0
+ovs-vsctl -- --id=@q0 create queue other-config:max-rate=10000000000</pre>
+
+          <h4>4. 部署模型服务</h4>
+          <pre class="command"># 创建模型服务网络
+ovs-vsctl add-port ai-bridge model-service -- set interface model-service type=internal
+ip addr add 10.0.4.1/24 dev model-service
+
+# 配置负载均衡
+ovs-vsctl add-port ai-bridge lb-vip -- set interface lb-vip type=internal
+ip addr add 10.0.5.1/24 dev lb-vip
+
+# 配置服务发现
+ovs-vsctl set controller ai-bridge connection-mode=out-of-band</pre>
+        </div>
+
+        <h3>🚀 操作步骤</h3>
+        <ol>
+          <li><strong>配置AI集群</strong>：设置GPU/CPU节点网络拓扑和RDMA连接</li>
+          <li><strong>建立数据管道</strong>：配置高带宽数据传输和缓存策略</li>
+          <li><strong>部署模型服务</strong>：设置推理服务和负载均衡</li>
+          <li><strong>性能优化</strong>：调优网络参数和资源分配</li>
+        </ol>
+
+        <h3>⚠️ 注意事项</h3>
+        <ul>
+          <li>RDMA网络需要特定的硬件支持和驱动</li>
+          <li>AI集群网络需要高带宽和低延迟</li>
+          <li>数据管道要考虑数据压缩和缓存策略</li>
+          <li>模型服务需要负载均衡和自动扩缩容</li>
+        </ul>
+
+        <h3>🔗 实际应用</h3>
+        <ul>
+          <li><strong>深度学习训练</strong>：支持大规模分布式训练</li>
+          <li><strong>模型推理服务</strong>：提供高并发推理能力</li>
+          <li><strong>数据预处理</strong>：高效处理大规模数据集</li>
+          <li><strong>模型版本管理</strong>：支持模型部署和回滚</li>
+        </ul>
+      </div>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconQuestionCircle } from '@arco-design/web-vue/es/icon'
 
 const currentStep = ref(0)
 const testResults = ref('')
+const helpVisible = ref(false)
 const clusterForm = reactive({ name: 'ai-training-cluster', type: 'training', gpuNodes: 8, cpuNodes: 16, topology: 'mesh', rdma: true, rdmaType: 'roce' })
 const pipelineForm = reactive({ name: 'data-pipeline-01', dataSource: ['storage', 'database'], protocol: 'rdma', bandwidth: 10000, compression: true, cacheStrategy: 'lru' })
 const serviceForm = reactive({ name: 'model-inference-service', type: 'grpc', loadBalancing: true, lbAlgorithm: 'least-connections', autoScaling: true, scalingPolicy: 'cpu', versionManagement: true })
@@ -161,6 +267,7 @@ const serviceForm = reactive({ name: 'model-inference-service', type: 'grpc', lo
 const nextStep = () => { if (currentStep.value < 3) currentStep.value++ }
 const prevStep = () => { if (currentStep.value > 0) currentStep.value-- }
 const applyScenario = async () => { Message.success('AI网络配置已应用') }
+const showHelp = () => { helpVisible.value = true }
 const deployAICluster = () => { testResults.value = 'AI集群部署结果:\n集群名称: ai-training-cluster\n集群类型: 训练集群\nGPU节点: 8个\nCPU节点: 16个\n网络拓扑: 网状拓扑\nRDMA网络: RoCE\n状态: 部署成功\n\n网络配置:\n- 节点间通信: 正常\n- RDMA连接: 已建立\n- 带宽分配: 100Gbps\n- 延迟: 1.2μs' }
 const testDataPipeline = () => { testResults.value = '数据管道测试:\n管道名称: data-pipeline-01\n数据源: 存储系统, 数据库\n传输协议: RDMA\n带宽: 10Gbps\n压缩: 已启用\n缓存: LRU策略\n\n性能指标:\n- 数据传输速率: 9.8Gbps\n- 压缩比: 65%\n- 缓存命中率: 85%\n- 延迟: 5μs\n- 吞吐量: 优秀' }
 const testModelService = () => { testResults.value = '模型服务测试:\n服务名称: model-inference-service\n服务类型: gRPC\n负载均衡: 已启用\n算法: 最少连接\n自动扩缩容: 已启用\n策略: 基于CPU使用率\n\n性能指标:\n- 请求处理: 5000 QPS\n- 平均响应时间: 15ms\n- 错误率: 0.01%\n- 资源使用率: 75%\n- 服务可用性: 99.99%' }
@@ -173,4 +280,11 @@ const showAINetworkStatus = () => { testResults.value = 'AI网络状态:\n集群
 .step-actions { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
 .test-results { margin-top: 20px; padding: 15px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e1e4e8; }
 .test-results pre { margin: 0; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; }
+.help-content { max-height: 600px; overflow-y: auto; }
+.help-content h3 { color: #1890ff; margin-top: 20px; margin-bottom: 10px; }
+.help-content h4 { color: #52c41a; margin-top: 15px; margin-bottom: 8px; }
+.help-content ul, .help-content ol { margin-left: 20px; }
+.help-content li { margin-bottom: 5px; }
+.command-section { margin: 15px 0; }
+.command { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4; }
 </style> 

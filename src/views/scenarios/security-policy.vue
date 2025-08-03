@@ -1,5 +1,13 @@
 <template>
   <a-card title="安全策略配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="选择安全域" description="选择要保护的安全域" />
       <a-step title="配置访问控制" description="设置访问控制规则" />
@@ -108,25 +116,118 @@
       <a-button v-if="currentStep < 3" type="primary" @click="nextStep">下一步</a-button>
       <a-button type="primary" style="float:right" @click="applyScenario">应用配置</a-button>
     </div>
+
+    <!-- 帮助弹窗 -->
+    <a-modal
+      v-model:visible="helpVisible"
+      title="安全策略配置 - 原理与命令"
+      width="800px"
+      :footer="null"
+    >
+      <div class="help-content">
+        <h3>🎯 场景原理</h3>
+        <p>安全策略配置通过防火墙规则、访问控制列表和流量过滤来保护网络资源，实现网络安全防护。通过多层次的安全策略确保网络和数据的安全。</p>
+        
+        <h3>🔧 核心概念</h3>
+        <ul>
+          <li><strong>防火墙规则</strong>：控制网络流量的访问规则</li>
+          <li><strong>访问控制</strong>：基于源地址、目标地址的访问控制</li>
+          <li><strong>流量过滤</strong>：过滤恶意流量和异常数据包</li>
+          <li><strong>安全域</strong>：不同安全级别的网络区域</li>
+        </ul>
+
+        <h3>📋 命令示例</h3>
+        <div class="command-section">
+          <h4>1. 配置防火墙规则</h4>
+          <pre class="command"># 添加允许规则
+ovs-ofctl add-flow br0 "table=0, priority=100, ip, nw_src=192.168.1.0/24, actions=output:2"
+
+# 添加拒绝规则
+ovs-ofctl add-flow br0 "table=0, priority=200, ip, nw_src=10.0.0.0/8, actions=drop"
+
+# 添加端口过滤规则
+ovs-ofctl add-flow br0 "table=0, priority=150, tcp, tp_dst=22, actions=output:3"</pre>
+
+          <h4>2. 配置访问控制</h4>
+          <pre class="command"># 配置源地址过滤
+ovs-ofctl add-flow br0 "table=0, priority=100, ip, nw_src=192.168.1.100, actions=output:2"
+
+# 配置目标地址过滤
+ovs-ofctl add-flow br0 "table=0, priority=100, ip, nw_dst=192.168.2.0/24, actions=output:3"
+
+# 配置协议过滤
+ovs-ofctl add-flow br0 "table=0, priority=100, tcp, actions=output:2"</pre>
+
+          <h4>3. 配置流量监控</h4>
+          <pre class="command"># 配置流量镜像
+ovs-vsctl add-port br0 mirror-port -- set interface mirror-port type=internal
+ovs-vsctl set port eth0 mirror=@m
+ovs-vsctl -- --id=@m create mirror name=m0 select_all=true output_port=@mirror-port
+
+# 配置流量统计
+ovs-ofctl dump-flows br0
+
+# 配置端口监控
+ovs-ofctl dump-ports br0</pre>
+
+          <h4>4. 配置安全策略</h4>
+          <pre class="command"># 配置默认拒绝策略
+ovs-ofctl add-flow br0 "table=0, priority=0, actions=drop"
+
+# 配置允许策略
+ovs-ofctl add-flow br0 "table=0, priority=100, ip, actions=output:NORMAL"
+
+# 配置日志记录
+ovs-ofctl add-flow br0 "table=0, priority=50, actions=log,output:NORMAL"</pre>
+        </div>
+
+        <h3>🚀 操作步骤</h3>
+        <ol>
+          <li><strong>选择安全域</strong>：定义需要保护的安全域</li>
+          <li><strong>配置防火墙</strong>：设置防火墙规则和策略</li>
+          <li><strong>配置监控</strong>：设置流量监控和日志记录</li>
+          <li><strong>测试验证</strong>：验证安全策略效果</li>
+        </ol>
+
+        <h3>⚠️ 注意事项</h3>
+        <ul>
+          <li>防火墙规则要考虑业务需求</li>
+          <li>访问控制要严格但不过度</li>
+          <li>要定期更新安全策略</li>
+          <li>要监控安全事件</li>
+        </ul>
+
+        <h3>🔗 实际应用</h3>
+        <ul>
+          <li><strong>企业网络</strong>：保护内部网络安全</li>
+          <li><strong>数据中心</strong>：隔离不同安全区域</li>
+          <li><strong>云环境</strong>：实现多租户安全隔离</li>
+          <li><strong>工业网络</strong>：保护关键基础设施</li>
+        </ul>
+      </div>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconQuestionCircle } from '@arco-design/web-vue/es/icon'
 
 const currentStep = ref(0)
 const testResults = ref('')
-const domainForm = reactive({ name: 'dmz-zone', level: 'high', network: '192.168.1.0/24', description: 'DMZ区域，用于部署Web服务' })
-const aclForm = reactive({ name: 'allow-web-access', action: 'allow', srcAddress: '192.168.1.0/24', dstAddress: '10.0.0.0/8', protocol: ['tcp'], ports: '80,443', priority: 1000 })
-const threatForm = reactive({ ddosProtection: true, ddosThreshold: 1000, ids: true, idsMode: 'hybrid', malwareFilter: true, logging: true })
+const helpVisible = ref(false)
+const domainForm = reactive({ name: 'dmz', type: 'dmz', description: 'DMZ区域网络', level: 'medium' })
+const firewallForm = reactive({ rules: [], defaultPolicy: 'deny', logging: true, monitoring: true })
+const monitorForm = reactive({ type: 'traffic', alert: true, log: true, report: true })
 
 const nextStep = () => { if (currentStep.value < 3) currentStep.value++ }
 const prevStep = () => { if (currentStep.value > 0) currentStep.value-- }
 const applyScenario = async () => { Message.success('安全策略配置已应用') }
-const applySecurityPolicy = () => { testResults.value = '安全策略应用结果:\n安全域: dmz-zone\n安全级别: 高\n规则数量: 5\nDDoS防护: 启用\n入侵检测: 启用\n状态: 已应用' }
-const testSecurityRules = () => { testResults.value = '安全规则测试:\n正常流量: 通过\n恶意流量: 阻止\nDDoS攻击: 检测到并阻止\n入侵尝试: 检测到并记录\n安全策略: 生效' }
-const showSecurityStatus = () => { testResults.value = '安全状态信息:\n安全域: dmz-zone\n状态: active\n规则数量: 5\n威胁检测: 正常\n日志记录: 正常\n防护效果: 良好' }
+const showHelp = () => { helpVisible.value = true }
+const createPolicy = () => { testResults.value = '安全策略创建结果:\n安全域: dmz\n类型: DMZ区域\n安全级别: 中等\n默认策略: 拒绝\n日志记录: 已启用\n监控: 已启用\n状态: 已创建' }
+const testPolicy = () => { testResults.value = '安全策略测试:\n防火墙规则: 生效\n访问控制: 正常\n流量过滤: 工作正常\n日志记录: 正常\n监控告警: 正常\n安全状态: 良好' }
+const showPolicyStatus = () => { testResults.value = '安全策略状态:\n策略名称: dmz-policy\n状态: 活跃\n运行时间: 72小时\n\n安全事件:\n- 拒绝访问: 15次\n- 异常流量: 3次\n- 安全告警: 1次\n\n防护效果:\n- 恶意流量: 已阻止\n- 异常访问: 已记录\n- 安全等级: 良好' }
 </script>
 
 <style scoped>
@@ -135,4 +236,11 @@ const showSecurityStatus = () => { testResults.value = '安全状态信息:\n安
 .step-actions { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
 .test-results { margin-top: 20px; padding: 15px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e1e4e8; }
 .test-results pre { margin: 0; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; }
+.help-content { max-height: 600px; overflow-y: auto; }
+.help-content h3 { color: #1890ff; margin-top: 20px; margin-bottom: 10px; }
+.help-content h4 { color: #52c41a; margin-top: 15px; margin-bottom: 8px; }
+.help-content ul, .help-content ol { margin-left: 20px; }
+.help-content li { margin-bottom: 5px; }
+.command-section { margin: 15px 0; }
+.command { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4; }
 </style> 

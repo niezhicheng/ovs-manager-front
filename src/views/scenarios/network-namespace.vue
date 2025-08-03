@@ -1,5 +1,13 @@
 <template>
-  <a-card title="网络命名空间隔离" class="scenario-card">
+  <a-card title="网络命名空间配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="创建命名空间" description="创建网络命名空间" />
       <a-step title="配置虚拟接口" description="为命名空间配置虚拟接口" />

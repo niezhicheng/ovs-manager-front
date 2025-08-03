@@ -1,5 +1,13 @@
 <template>
-  <a-card title="QoS 流量控制" class="scenario-card">
+  <a-card title="QoS流量控制配置" class="scenario-card">
+    <template #extra>
+      <a-button type="primary" @click="showHelp">
+        <template #icon>
+          <icon-question-circle />
+        </template>
+        帮助
+      </a-button>
+    </template>
     <a-steps :current="currentStep" style="margin-bottom: 24px">
       <a-step title="选择端口" description="选择要配置QoS的端口" />
       <a-step title="配置QoS策略" description="设置流量控制策略" />
