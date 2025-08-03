@@ -85,15 +85,96 @@
       <a-button v-if="currentStep < 3" type="primary" @click="nextStep">下一步</a-button>
       <a-button type="primary" style="float:right" @click="applyScenario">应用配置</a-button>
     </div>
+
+    <!-- 帮助弹窗 -->
+    <a-modal
+      v-model:visible="helpVisible"
+      title="QoS流量控制 - 原理与命令"
+      width="800px"
+      :footer="null"
+    >
+      <div class="help-content">
+        <h3>🎯 场景原理</h3>
+        <p>QoS流量控制用于对网络流量进行分级管理和带宽分配，保障关键业务的网络性能，防止网络拥塞。</p>
+        
+        <h3>🔧 核心概念</h3>
+        <ul>
+          <li><strong>队列</strong>：对端口流量进行分组管理</li>
+          <li><strong>带宽限制</strong>：限制端口或队列的最大带宽</li>
+          <li><strong>优先级</strong>：为不同流量分配不同优先级</li>
+          <li><strong>流量整形</strong>：平滑突发流量</li>
+        </ul>
+
+        <h3>📋 命令示例</h3>
+        <div class="command-section">
+          <h4>1. 创建QoS策略</h4>
+          <pre class="command"># 创建QoS对象
+ovs-vsctl set port eth1 qos=@qos1
+ovs-vsctl -- --id=@qos1 create qos type=linux-htb queues=0=@q0,1=@q1
+ovs-vsctl -- --id=@q0 create queue other-config:max-rate=10000000
+ovs-vsctl -- --id=@q1 create queue other-config:max-rate=5000000</pre>
+
+          <h4>2. 配置带宽限制</h4>
+          <pre class="command"># 设置端口最大带宽
+ovs-vsctl set port eth1 qos=@qos1
+
+# 设置队列带宽
+ovs-vsctl set queue &lt;queue-id&gt; other-config:max-rate=5000000</pre>
+
+          <h4>3. 配置优先级</h4>
+          <pre class="command"># 设置流表优先级
+ovs-ofctl add-flow br0 "priority=1000,ip,nw_src=192.168.1.0/24,actions=set_queue:1,output:2"
+
+# 设置端口优先级
+ovs-vsctl set port eth1 other-config:priority=100</pre>
+
+          <h4>4. 监控QoS状态</h4>
+          <pre class="command"># 查看QoS配置
+ovs-vsctl list qos
+
+# 查看队列状态
+ovs-vsctl list queue
+
+# 查看端口流量
+ovs-ofctl dump-ports br0 eth1</pre>
+        </div>
+
+        <h3>🚀 操作步骤</h3>
+        <ol>
+          <li><strong>选择端口</strong>：选择需要配置QoS的端口</li>
+          <li><strong>创建队列</strong>：为端口创建流量队列</li>
+          <li><strong>配置带宽</strong>：设置队列和端口的带宽限制</li>
+          <li><strong>测试验证</strong>：验证QoS策略效果</li>
+        </ol>
+
+        <h3>⚠️ 注意事项</h3>
+        <ul>
+          <li>带宽单位为bit/s</li>
+          <li>优先级要合理分配</li>
+          <li>要监控队列状态</li>
+          <li>要避免带宽争用</li>
+        </ul>
+
+        <h3>🔗 实际应用</h3>
+        <ul>
+          <li><strong>企业网络</strong>：保障关键业务带宽</li>
+          <li><strong>数据中心</strong>：分级管理流量</li>
+          <li><strong>多租户环境</strong>：隔离不同租户流量</li>
+          <li><strong>视频会议</strong>：保障实时流量</li>
+        </ul>
+      </div>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconQuestionCircle } from '@arco-design/web-vue/es/icon'
 
 const currentStep = ref(0)
 const testResults = ref('')
+const helpVisible = ref(false)
 const portForm = reactive({ bridge: '', name: '' })
 const qosForm = reactive({ type: 'linux-htb', maxRate: 1000000, minRate: 100000, burst: 2000000 })
 const queueForm = reactive({ highPriority: 300000, mediumPriority: 500000, lowPriority: 200000, policy: 'fifo' })
@@ -101,6 +182,7 @@ const queueForm = reactive({ highPriority: 300000, mediumPriority: 500000, lowPr
 const nextStep = () => { if (currentStep.value < 3) currentStep.value++ }
 const prevStep = () => { if (currentStep.value > 0) currentStep.value-- }
 const applyScenario = async () => { Message.success('QoS流量控制配置已应用') }
+const showHelp = () => { helpVisible.value = true }
 const applyQoS = () => { testResults.value = 'QoS配置应用结果:\n端口: eth0\nQoS类型: linux-htb\n最大带宽: 1000Mbps\n最小保证: 100Mbps\n突发限制: 2000Mbps\n状态: 已应用' }
 const testBandwidth = () => { testResults.value = '带宽测试结果:\n当前带宽: 850Mbps\n限制带宽: 1000Mbps\n队列使用率:\n- 高优先级: 60%\n- 中优先级: 80%\n- 低优先级: 40%\n状态: 正常' }
 const showQoSStatus = () => { testResults.value = 'QoS状态信息:\n端口: eth0\nQoS类型: linux-htb\n状态: active\n队列数量: 3\n策略: FIFO\n统计信息: 正常收集' }
@@ -112,4 +194,11 @@ const showQoSStatus = () => { testResults.value = 'QoS状态信息:\n端口: eth
 .step-actions { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
 .test-results { margin-top: 20px; padding: 15px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e1e4e8; }
 .test-results pre { margin: 0; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; }
+.help-content { max-height: 600px; overflow-y: auto; }
+.help-content h3 { color: #1890ff; margin-top: 20px; margin-bottom: 10px; }
+.help-content h4 { color: #52c41a; margin-top: 15px; margin-bottom: 8px; }
+.help-content ul, .help-content ol { margin-left: 20px; }
+.help-content li { margin-bottom: 5px; }
+.command-section { margin: 15px 0; }
+.command { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4; }
 </style> 

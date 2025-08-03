@@ -97,25 +97,111 @@
       <a-button v-if="currentStep < 3" type="primary" @click="nextStep">下一步</a-button>
       <a-button type="primary" style="float:right" @click="applyScenario">应用配置</a-button>
     </div>
+
+    <!-- 帮助弹窗 -->
+    <a-modal
+      v-model:visible="helpVisible"
+      title="网络监控配置 - 原理与命令"
+      width="800px"
+      :footer="null"
+    >
+      <div class="help-content">
+        <h3>🎯 场景原理</h3>
+        <p>网络监控用于实时采集、分析和展示网络流量、设备状态和性能指标，帮助运维人员及时发现和处理网络异常。</p>
+        
+        <h3>🔧 核心概念</h3>
+        <ul>
+          <li><strong>流量采集</strong>：收集网络流量数据</li>
+          <li><strong>性能监控</strong>：监控带宽、延迟、丢包等指标</li>
+          <li><strong>告警机制</strong>：异常时自动告警</li>
+          <li><strong>可视化</strong>：图表展示网络状态</li>
+        </ul>
+
+        <h3>📋 命令示例</h3>
+        <div class="command-section">
+          <h4>1. 采集流量数据</h4>
+          <pre class="command"># 查看端口流量
+ovs-ofctl dump-ports br0
+
+# 查看流表统计
+ovs-ofctl dump-flows br0
+
+# 查看队列统计
+ovs-vsctl list queue</pre>
+
+          <h4>2. 监控设备状态</h4>
+          <pre class="command"># 查看端口状态
+ovs-vsctl list interface
+
+# 查看网桥状态
+ovs-vsctl show
+
+# 查看设备日志
+ovs-appctl vlog/list</pre>
+
+          <h4>3. 配置告警</h4>
+          <pre class="command"># 配置流量阈值告警
+# (需配合外部监控系统)
+
+# 配置端口状态告警
+# (需配合外部监控系统)</pre>
+
+          <h4>4. 可视化展示</h4>
+          <pre class="command"># 导出流量数据
+ovs-ofctl dump-ports br0 > ports.log
+
+# 导出流表数据
+ovs-ofctl dump-flows br0 > flows.log</pre>
+        </div>
+
+        <h3>🚀 操作步骤</h3>
+        <ol>
+          <li><strong>选择监控类型</strong>：选择需要监控的对象</li>
+          <li><strong>配置采集</strong>：设置流量采集和性能监控</li>
+          <li><strong>配置告警</strong>：设置阈值和告警规则</li>
+          <li><strong>可视化展示</strong>：展示监控数据</li>
+        </ol>
+
+        <h3>⚠️ 注意事项</h3>
+        <ul>
+          <li>监控频率要合理设置</li>
+          <li>告警规则要避免误报</li>
+          <li>要定期清理监控数据</li>
+          <li>要关注设备日志</li>
+        </ul>
+
+        <h3>🔗 实际应用</h3>
+        <ul>
+          <li><strong>数据中心</strong>：实时监控网络状态</li>
+          <li><strong>企业网络</strong>：保障业务连续性</li>
+          <li><strong>云平台</strong>：多租户网络监控</li>
+          <li><strong>安全运维</strong>：发现异常流量</li>
+        </ul>
+      </div>
+    </a-modal>
   </a-card>
 </template>
 
 <script setup>
 import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { IconQuestionCircle } from '@arco-design/web-vue/es/icon'
 
 const currentStep = ref(0)
 const testResults = ref('')
-const monitorForm = reactive({ type: 'netflow', bridge: '', name: 'netflow-monitor' })
-const collectorForm = reactive({ address: '192.168.1.100', port: 9995, version: 'v9', engineId: 1, timeout: 300 })
-const samplingForm = reactive({ rate: 1000, headerLength: 128, pollingInterval: 30, agentAddress: '192.168.1.1', obsDomainId: 1 })
+const helpVisible = ref(false)
+const monitorForm = reactive({ type: 'traffic', description: '流量监控' })
+const performanceForm = reactive({ bandwidth: true, latency: true, loss: true })
+const alertForm = reactive({ threshold: 80, alert: true, log: true })
+const visualForm = reactive({ chart: true, export: true })
 
 const nextStep = () => { if (currentStep.value < 3) currentStep.value++ }
 const prevStep = () => { if (currentStep.value > 0) currentStep.value-- }
 const applyScenario = async () => { Message.success('网络监控配置已应用') }
-const startMonitoring = () => { testResults.value = '监控启动结果:\n监控类型: NetFlow\n网桥: br0\n收集器: 192.168.1.100:9995\n采样率: 1/1000\n状态: 已启动' }
-const testDataCollection = () => { testResults.value = '数据收集测试:\n收集器连接: 正常\n数据包发送: 成功\n采样数据: 正常收集\n流量统计: 实时更新\n监控效果: 良好' }
-const showMonitoringStatus = () => { testResults.value = '监控状态信息:\n监控名称: netflow-monitor\n状态: active\n收集器: 连接正常\n采样率: 1/1000\n数据包: 已收集 1,234 个\n流量: 实时监控中' }
+const showHelp = () => { helpVisible.value = true }
+const startMonitor = () => { testResults.value = '监控启动结果:\n类型: 流量监控\n性能监控: 启用\n告警: 启用\n可视化: 启用\n状态: 运行中' }
+const testAlert = () => { testResults.value = '告警测试:\n流量阈值: 80%\n告警状态: 正常\n日志记录: 正常\n性能: 良好' }
+const showMonitorStatus = () => { testResults.value = '监控状态:\n类型: 流量监控\n带宽: 950Mbps\n延迟: 1.2ms\n丢包率: 0.01%\n告警: 正常\n日志: 正常' }
 </script>
 
 <style scoped>
@@ -124,4 +210,11 @@ const showMonitoringStatus = () => { testResults.value = '监控状态信息:\n�
 .step-actions { display: flex; justify-content: space-between; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
 .test-results { margin-top: 20px; padding: 15px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e1e4e8; }
 .test-results pre { margin: 0; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; }
+.help-content { max-height: 600px; overflow-y: auto; }
+.help-content h3 { color: #1890ff; margin-top: 20px; margin-bottom: 10px; }
+.help-content h4 { color: #52c41a; margin-top: 15px; margin-bottom: 8px; }
+.help-content ul, .help-content ol { margin-left: 20px; }
+.help-content li { margin-bottom: 5px; }
+.command-section { margin: 15px 0; }
+.command { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 12px; margin: 8px 0; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4; }
 </style> 
