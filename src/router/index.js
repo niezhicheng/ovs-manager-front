@@ -83,6 +83,42 @@ export const routes = [
         path: 'network-devices',
         component: () => import('@/views/ovs/network-devices.vue'),
         meta: { title: '网络设备虚拟化' }
+      },
+      {
+        name: 'ovs-database',
+        path: 'database',
+        component: () => import('@/views/ovs/database.vue'),
+        meta: { title: '数据库管理' }
+      },
+      {
+        name: 'ovs-statistics',
+        path: 'statistics',
+        component: () => import('@/views/ovs/statistics.vue'),
+        meta: { title: '统计信息' }
+      },
+      {
+        name: 'ovs-controller',
+        path: 'controller',
+        component: () => import('@/views/ovs/controller.vue'),
+        meta: { title: '控制器管理' }
+      },
+      {
+        name: 'ovs-qos',
+        path: 'qos',
+        component: () => import('@/views/ovs/qos.vue'),
+        meta: { title: 'QoS管理' }
+      },
+      {
+        name: 'ovs-mirror',
+        path: 'mirror',
+        component: () => import('@/views/ovs/mirror.vue'),
+        meta: { title: '镜像管理' }
+      },
+      {
+        name: 'ovs-group',
+        path: 'group',
+        component: () => import('@/views/ovs/group.vue'),
+        meta: { title: '组表管理' }
       }
     ]
   },
