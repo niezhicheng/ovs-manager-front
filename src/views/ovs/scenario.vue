@@ -50,12 +50,6 @@ const scenarios = [
     path: '/scenario/network-namespace',
   },
   {
-    id: 6,
-    title: 'LiveKit 监考系统',
-    description: '配置 LiveKit 在线监考环境',
-    path: '/scenario/livekit-proctor',
-  },
-  {
     id: 7,
     title: 'Patch 端口连接',
     description: '配置网桥间的 Patch 端口连接',
@@ -198,4 +192,4 @@ const navigateToScenario = (path) => {
   margin-top: 8px;
   font-size: 14px;
 }
-</style> 
+</style>

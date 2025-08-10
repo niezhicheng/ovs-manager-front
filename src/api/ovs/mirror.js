@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 获取镜像配置列表
 export function getMirrorList(bridge) {
   return request({
-    url: '/ovs/mirror',
+    url: '/api/ovs/mirror',
     method: 'get',
     params: { bridge }
   })
@@ -12,7 +12,7 @@ export function getMirrorList(bridge) {
 // 创建镜像配置
 export function createMirror(data) {
   return request({
-    url: '/ovs/mirror',
+    url: '/api/ovs/mirror/add',
     method: 'post',
     data
   })
@@ -21,7 +21,7 @@ export function createMirror(data) {
 // 更新镜像配置
 export function updateMirror(id, data) {
   return request({
-    url: `/ovs/mirror/${id}`,
+    url: `/api/ovs/mirror/${id}`,
     method: 'put',
     data
   })
@@ -30,7 +30,7 @@ export function updateMirror(id, data) {
 // 删除镜像配置
 export function deleteMirror(id) {
   return request({
-    url: `/ovs/mirror/${id}`,
+    url: `/api/ovs/mirror/${id}`,
     method: 'delete'
   })
 }
@@ -38,7 +38,7 @@ export function deleteMirror(id) {
 // 启用镜像
 export function enableMirror(id) {
   return request({
-    url: `/ovs/mirror/${id}/enable`,
+    url: `/api/ovs/mirror/${id}/enable`,
     method: 'post'
   })
 }
@@ -46,7 +46,7 @@ export function enableMirror(id) {
 // 停用镜像
 export function disableMirror(id) {
   return request({
-    url: `/ovs/mirror/${id}/disable`,
+    url: `/api/ovs/mirror/${id}/disable`,
     method: 'post'
   })
 }
@@ -54,7 +54,7 @@ export function disableMirror(id) {
 // 获取镜像统计
 export function getMirrorStats(bridge) {
   return request({
-    url: '/ovs/mirror/stats',
+    url: '/api/ovs/mirror/stats',
     method: 'get',
     params: { bridge }
   })
@@ -63,7 +63,7 @@ export function getMirrorStats(bridge) {
 // 获取镜像详情
 export function getMirrorDetails(id) {
   return request({
-    url: `/ovs/mirror/${id}/details`,
+    url: `/api/ovs/mirror/${id}/details`,
     method: 'get'
   })
 }
@@ -71,7 +71,7 @@ export function getMirrorDetails(id) {
 // 重置镜像统计
 export function resetMirrorStats(id) {
   return request({
-    url: `/ovs/mirror/${id}/reset-stats`,
+    url: `/api/ovs/mirror/${id}/reset-stats`,
     method: 'post'
   })
-} 
+}

@@ -67,24 +67,6 @@ export const routes = [
         meta: { title: '网络命名空间' }
       },
       {
-        name: 'ovs-livekit-demo',
-        path: 'livekit-demo',
-        component: () => import('@/views/ovs/livekit-demo.vue'),
-        meta: { title: 'LiveKit Demo' }
-      },
-      {
-        name: 'ovs-livekit1-demo',
-        path: 'livekit-demo1',
-        component: () => import('@/views/ovs/livekit-demo-simple.vue'),
-        meta: { title: 'LiveKit simple Demo' }
-      },
-      {
-        name: 'ovs-network-devices',
-        path: 'network-devices',
-        component: () => import('@/views/ovs/network-devices.vue'),
-        meta: { title: '网络设备虚拟化' }
-      },
-      {
         name: 'ovs-database',
         path: 'database',
         component: () => import('@/views/ovs/database.vue'),

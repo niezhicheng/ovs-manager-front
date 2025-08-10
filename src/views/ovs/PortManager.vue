@@ -6,6 +6,11 @@
         <a-button @click="fetchPorts">刷新</a-button>
       </a-space>
       <a-table :columns="columns" :data="portList" row-key="portName">
+        <template #type="{ record }">
+          <a-tag :color="getPortTypeColor(record.type)">
+            {{ record.type || 'normal' }}
+          </a-tag>
+        </template>
         <template #status="{ record }">
           <a-switch
             :model-value="record.up"
@@ -13,7 +18,11 @@
             checked-children="Up"
             unchecked-children="Down"
             :loading="record.statusLoading"
+            :disabled="!canTogglePortStatus(record)"
           />
+          <div v-if="(record.type === 'geneve' || record.type === 'vxlan') && !record.up" style="font-size: 12px; color: #ff4d4f; margin-top: 4px;">
+            {{ getTunnelStatusTip(record) || '需要先配置远端IP' }}
+          </div>
         </template>
         <template #actions="{ record }">
           <a-space>
@@ -219,7 +228,7 @@ const routeFormRef = ref()
 const columns = [
   { title: '端口名', dataIndex: 'name' },
   { title: '别名', dataIndex: 'alias' },
-  { title: '类型', dataIndex: 'type' },
+  { title: '类型', slotName: 'type' },
   { title: '状态', slotName: 'status' },
   { title: '操作', slotName: 'actions' }
 ]
@@ -267,15 +276,56 @@ const deletePort = async (record) => {
 const togglePortStatus = async (record, checked) => {
   // 设置加载状态
   record.statusLoading = true
+  const originalStatus = record.up
+  
   try {
+    // 对于隧道端口类型，需要特殊处理
+    if (record.type === 'geneve' || record.type === 'vxlan') {
+      // 检查隧道端口是否配置了必要的参数
+      if (!record.remote_ip && checked) {
+        const portType = record.type === 'geneve' ? 'Geneve' : 'VXLAN'
+        Message.warning(`${portType}端口需要先配置远端IP才能启用`)
+        record.up = originalStatus
+        return
+      }
+      
+      // 对于VXLAN端口，还需要检查VNI配置
+      if (record.type === 'vxlan' && !record.vni && checked) {
+        Message.warning('VXLAN端口需要先配置VNI才能启用')
+        record.up = originalStatus
+        return
+      }
+      
+      console.log(`OVS 2.5.0支持${record.type}端口类型，检查配置...`)
+    }
+    
     await apiSetPortUpDown({ netns: '1', portName: record.name, up: checked })
     // 更新本地状态
     record.up = checked
     Message.success(`端口 ${record.name} 状态已${checked ? '启用' : '禁用'}`)
   } catch (error) {
-    Message.error(`切换端口状态失败：${error.message}`)
+    console.error('切换端口状态失败:', error)
+    
+    // 针对隧道端口的特殊错误处理
+    if (record.type === 'geneve' || record.type === 'vxlan') {
+      const portType = record.type === 'geneve' ? 'Geneve' : 'VXLAN'
+      if (error.message.includes('not supported') || error.message.includes('unsupported')) {
+        Message.error(`当前OVS版本不支持${portType}端口类型的开关操作`)
+      } else if (error.message.includes('remote_ip') || error.message.includes('remote ip')) {
+        Message.error(`${portType}端口需要先配置远端IP才能启用`)
+      } else if (error.message.includes('vni') || error.message.includes('VNI')) {
+        Message.error(`${portType}端口需要先配置VNI才能启用`)
+      } else if (error.message.includes('tunnel') || error.message.includes('tunnel')) {
+        Message.error(`${portType}隧道配置错误，请检查remote_ip和VNI配置`)
+      } else {
+        Message.error(`${portType}端口状态切换失败：${error.message || '操作失败'}`)
+      }
+    } else {
+      Message.error(`切换端口状态失败：${error.message || '操作失败'}`)
+    }
+    
     // 恢复原状态
-    record.up = !checked
+    record.up = originalStatus
   } finally {
     // 清除加载状态
     record.statusLoading = false
@@ -369,9 +419,9 @@ const closeConfigModal = () => {
 }
 const saveConfig = async () => {
   try {
-  if (showIpVlanConfig.value) {
+    if (showIpVlanConfig.value) {
       // 对于支持IP配置的端口类型（normal, internal, tap, tun）
-    if (configForm.value.ip) {
+      if (configForm.value.ip) {
         await apiSetPortAddr({ portName: currentPort.value.name, ip: configForm.value.ip })
         Message.success(`端口 ${currentPort.value.name} IP地址添加成功`)
         // 重新获取IP地址列表
@@ -379,25 +429,52 @@ const saveConfig = async () => {
         currentPortIps.value = res.data?.ips || []
         // 清空输入框
         configForm.value.ip = ''
-    }
-    if (configForm.value.vlan) {
-      await apiSetPortVlan({ portName: currentPort.value.name, tag: configForm.value.vlan })
+      }
+      
+      if (configForm.value.vlan) {
+        await apiSetPortVlan({ portName: currentPort.value.name, tag: configForm.value.vlan })
         Message.success(`端口 ${currentPort.value.name} VLAN标签配置成功`)
-    }
-  } else if (["gre","vxlan","geneve"].includes(currentPort.value?.type)) {
+      }
+    } else if (["gre","vxlan","geneve"].includes(currentPort.value?.type)) {
       // 隧道端口配置
-    const options = { remote_ip: configForm.value.remote_ip }
-    if (configForm.value.key) options.key = configForm.value.key
-    if (["vxlan","geneve"].includes(currentPort.value.type) && configForm.value.vni) options.vni = configForm.value.vni
-    await apiAddTunnelPort({ bridge: props.bridge, portName: currentPort.value.name, type: currentPort.value.type, options })
+      const options = { remote_ip: configForm.value.remote_ip }
+      if (configForm.value.key) options.key = configForm.value.key
+      if (["vxlan","geneve"].includes(currentPort.value.type) && configForm.value.vni) options.vni = configForm.value.vni
+      
+      // 对于隧道端口，确保配置完整
+      if (currentPort.value.type === 'geneve' && !configForm.value.remote_ip) {
+        Message.error('Geneve端口必须配置远端IP')
+        return
+      }
+      if (currentPort.value.type === 'vxlan' && !configForm.value.remote_ip) {
+        Message.error('VXLAN端口必须配置远端IP')
+        return
+      }
+      if (currentPort.value.type === 'vxlan' && !configForm.value.vni) {
+        Message.error('VXLAN端口必须配置VNI')
+        return
+      }
+      
+      await apiAddTunnelPort({ bridge: props.bridge, portName: currentPort.value.name, type: currentPort.value.type, options })
       Message.success(`隧道端口 ${currentPort.value.name} 配置成功`)
-  } else if (currentPort.value?.type === 'patch') {
+      
+      // 如果配置了up状态，尝试启用端口
+      if (configForm.value.up) {
+        try {
+          await apiSetPortUpDown({ netns: '1', portName: currentPort.value.name, up: true })
+          Message.success(`端口 ${currentPort.value.name} 已启用`)
+        } catch (error) {
+          console.error('启用端口失败:', error)
+          Message.warning(`端口配置成功，但启用失败：${error.message}`)
+        }
+      }
+    } else if (currentPort.value?.type === 'patch') {
       // Patch端口配置
-    await apiAddPatchPort({ bridge: props.bridge, portName: currentPort.value.name, peer: configForm.value.peer })
+      await apiAddPatchPort({ bridge: props.bridge, portName: currentPort.value.name, peer: configForm.value.peer })
       Message.success(`Patch端口 ${currentPort.value.name} 配置成功`)
-  } else if (currentPort.value?.type === 'bond') {
+    } else if (currentPort.value?.type === 'bond') {
       // Bond端口配置
-    await apiAddBondPort({ bridge: props.bridge, portName: currentPort.value.name, members: configForm.value.members, mode: configForm.value.mode })
+      await apiAddBondPort({ bridge: props.bridge, portName: currentPort.value.name, members: configForm.value.members, mode: configForm.value.mode })
       Message.success(`Bond端口 ${currentPort.value.name} 配置成功`)
     }
 
@@ -409,7 +486,8 @@ const saveConfig = async () => {
       fetchPorts()
     }
   } catch (error) {
-    Message.error(`配置失败：${error.message}`)
+    console.error('配置保存失败:', error)
+    Message.error(`配置失败：${error.message || '保存失败'}`)
   }
 }
 
@@ -436,6 +514,70 @@ const setAlias = async () => {
   } catch (error) {
     Message.error('设置别名失败：' + error.message)
   }
+}
+
+// 获取端口类型颜色
+const getPortTypeColor = (type) => {
+  const colorMap = {
+    'normal': 'blue',
+    'internal': 'green',
+    'patch': 'orange',
+    'vxlan': 'purple',
+    'gre': 'cyan',
+    'geneve': 'magenta',
+    'tap': 'pink',
+    'tun': 'red',
+    'bond': 'volcano'
+  }
+  return colorMap[type] || 'default'
+}
+
+// 检查OVS版本和geneve支持
+const checkOvsSupport = async () => {
+  try {
+    // 这里可以调用后端API检查OVS版本和geneve支持
+    // 暂时返回true，实际应该调用后端检查
+    return true
+  } catch (error) {
+    console.error('OVS支持检查失败:', error)
+    return false
+  }
+}
+
+// 检查端口是否可以切换状态
+const canTogglePortStatus = (record) => {
+  // 隧道端口需要先配置必要参数才能启用
+  if (record.type === 'geneve' || record.type === 'vxlan') {
+    if (!record.remote_ip && record.up === false) {
+      return false
+    }
+    // 对于VXLAN端口，还需要检查VNI配置
+    if (record.type === 'vxlan' && !record.vni && record.up === false) {
+      return false
+    }
+    // 检查隧道端口的其他必要配置
+    if (record.up === false && (!record.remote_ip || record.remote_ip === '')) {
+      return false
+    }
+  }
+  return true
+}
+
+// 获取隧道端口的配置状态提示
+const getTunnelStatusTip = (record) => {
+  if (record.type === 'geneve' || record.type === 'vxlan') {
+    const portType = record.type === 'geneve' ? 'Geneve' : 'VXLAN'
+    if (!record.remote_ip || record.remote_ip === '') {
+      return `需要先配置远端IP`
+    }
+    if (record.type === 'vxlan' && (!record.vni && record.vni !== 0)) {
+      return `建议配置VNI`
+    }
+    if (record.type === 'geneve' && (!record.vni && record.vni !== 0)) {
+      return `建议配置VNI`
+    }
+  }
+  return ''
 }
 
 watch(() => props.bridge, () => {

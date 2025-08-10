@@ -6,6 +6,11 @@
         <a-button @click="fetchBridges">刷新</a-button>
       </a-space>
       <a-table :columns="columns" :data="bridgeList" row-key="name">
+        <template #status="{ record }">
+          <a-tag :color="getStatusColor(record.status)">
+            {{ getStatusText(record.status) }}
+          </a-tag>
+        </template>
         <template #actions="{ record }">
           <a-space>
             <a-button size="mini" @click="openPortModal(record)">配置端口</a-button>
@@ -218,7 +223,7 @@ import {
 } from '@/api/ovs/bridge'
 import { Message } from '@arco-design/web-vue'
 import PortManager from './PortManager.vue'
-import { listMirrors, addMirror as apiAddMirror } from '@/api/ovs/mirror'
+import { getMirrorList as listMirrors, createMirror as apiAddMirror } from '@/api/ovs/mirror'
 
 const bridgeList = ref([])
 const showAddModal = ref(false)
@@ -285,15 +290,25 @@ let currentMirrorBridge = ''
 
 const columns = [
   { title: '名称', dataIndex: 'name' },
+  { title: '状态', slotName: 'status' },
+  { title: '端口数', dataIndex: 'portCount' },
   { title: '操作', slotName: 'actions' }
 ]
 
 const fetchBridges = async () => {
   try {
     const res = await listBridges()
-    bridgeList.value = res.data.bridges || []
+    bridgeList.value = res.data?.bridges || []
+    if (bridgeList.value.length === 0) {
+      Message.info('暂无交换机数据')
+    }
   } catch (error) {
-    Message.error('获取交换机列表失败')
+    console.error('获取交换机列表失败:', error)
+    Message.error(`获取交换机列表失败: ${error.message || '网络连接异常'}`)
+    // 可以添加重试机制
+    setTimeout(() => {
+      fetchBridges()
+    }, 3000)
   }
 }
 
@@ -332,26 +347,36 @@ const closePortModal = () => {
 const openConfigModal = async (record) => {
   currentBridge.value = record.name
   showConfigModal.value = true
-  
+
   try {
     // 初始化配置表单
     netflowForm.value.bridge = record.name
     sflowForm.value.bridge = record.name
     stpForm.value.bridge = record.name
     ipfixForm.value.bridge = record.name
-    
+
     // 获取当前配置
-    await Promise.all([
+    const configPromises = [
       loadNetFlowConfig(record.name),
       loadSFlowConfig(record.name),
       loadStpConfig(record.name),
       loadRstpConfig(record.name),
       loadIpfixConfig(record.name)
-    ])
+    ]
+
+    await Promise.allSettled(configPromises)
     
-    // 注意：QoS配置需要端口名称，这里暂时不自动加载
-    // 用户需要手动输入端口名称后才能获取QoS配置
+    // 检查哪些配置加载失败
+    const results = await Promise.allSettled(configPromises)
+    const failedConfigs = results
+      .map((result, index) => result.status === 'rejected' ? ['NetFlow', 'sFlow', 'STP', 'RSTP', 'IPFIX'][index] : null)
+      .filter(Boolean)
+    
+    if (failedConfigs.length > 0) {
+      Message.warning(`以下配置获取失败，将使用默认值: ${failedConfigs.join(', ')}`)
+    }
   } catch (error) {
+    console.error('配置加载失败:', error)
     Message.warning('部分配置获取失败，将使用默认值')
   }
 }
@@ -435,7 +460,7 @@ const loadQosConfig = async () => {
     Message.warning('请先输入端口名称')
     return
   }
-  
+
   try {
     const res = await getQos(currentBridge.value, qosForm.value.portName)
     if (res.data && res.data.config) {
@@ -555,22 +580,22 @@ const formatFlowTable = (rawContent) => {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim()
-    
+
     if (line.startsWith('NXST_FLOW reply')) {
       // 跳过响应头
       continue
     }
-    
+
     if (line.includes('cookie=') && line.includes('actions=')) {
       // 这是一个流表条目
       flowCount++
       formattedContent += `\n📋 流表条目 #${flowCount}\n`
       formattedContent += '═'.repeat(50) + '\n'
-      
+
       // 解析流表条目
       const parsed = parseFlowEntry(line)
       formattedContent += parsed
-      
+
       formattedContent += '\n' + '─'.repeat(50) + '\n'
     } else if (line) {
       // 其他内容
@@ -587,10 +612,10 @@ const formatFlowTable = (rawContent) => {
 
 const parseFlowEntry = (line) => {
   let result = ''
-  
+
   // 解析各个字段
   const fields = line.split(', ')
-  
+
   for (const field of fields) {
     if (field.includes('=')) {
       const [key, value] = field.split('=', 2)
@@ -599,7 +624,7 @@ const parseFlowEntry = (line) => {
       result += `  ${formattedKey}: ${formattedValue}\n`
     }
   }
-  
+
   return result
 }
 
@@ -628,7 +653,7 @@ const formatFieldValue = (key, value) => {
       } else {
         return `${seconds.toFixed(1)}秒`
       }
-    
+
     case 'idle_age':
       const idleSeconds = parseInt(value)
       if (idleSeconds > 3600) {
@@ -638,7 +663,7 @@ const formatFieldValue = (key, value) => {
       } else {
         return `${idleSeconds}秒`
       }
-    
+
     case 'n_bytes':
       const bytes = parseInt(value)
       if (bytes > 1024 * 1024) {
@@ -648,7 +673,7 @@ const formatFieldValue = (key, value) => {
       } else {
         return `${bytes} 字节`
       }
-    
+
     case 'priority':
       const priority = parseInt(value)
       if (priority === 0) {
@@ -658,7 +683,7 @@ const formatFieldValue = (key, value) => {
       } else {
         return `${priority} (普通)`
       }
-    
+
     case 'actions':
       if (value === 'NORMAL') {
         return `${value} (正常转发)`
@@ -669,7 +694,7 @@ const formatFieldValue = (key, value) => {
       } else {
         return value
       }
-    
+
     default:
       return value
   }
@@ -742,17 +767,28 @@ const copyRawFlowsContent = async () => {
 
 const openMirrorModal = async (record) => {
   currentMirrorBridge = record.name
-  // 获取当前bridge的镜像配置
-  const res = await listMirrors({ bridge: currentMirrorBridge })
-  const mirrors = parseMirrorOutput(res.data?.output)
-  if (mirrors.length > 0) {
-    Object.assign(mirrorForm.value, mirrors[0])
-  } else {
+  console.log("这是",currentMirrorBridge)
+  try {
+    // 获取当前bridge的镜像配置
+    const res = await listMirrors(currentMirrorBridge)
+    const mirrors = parseMirrorOutput(res.data?.output)
+    if (mirrors.length > 0) {
+      Object.assign(mirrorForm.value, mirrors[0])
+    } else {
+      Object.assign(mirrorForm.value, {
+        name: '', selectSrcPorts: '', selectDstPorts: '', selectVlan: undefined, outputPort: '', outputVlan: undefined, selectAll: false
+      })
+    }
+    showMirrorModal.value = true
+  } catch (error) {
+    console.error('获取镜像配置失败:', error)
+    Message.error('获取镜像配置失败')
+    // 设置默认值
     Object.assign(mirrorForm.value, {
       name: '', selectSrcPorts: '', selectDstPorts: '', selectVlan: undefined, outputPort: '', outputVlan: undefined, selectAll: false
     })
+    showMirrorModal.value = true
   }
-  showMirrorModal.value = true
 }
 
 const saveMirrorConfig = async () => {
@@ -798,6 +834,28 @@ function parseMirrorOutput(output) {
     mirrors.push(obj);
   }
   return mirrors;
+}
+
+// 获取状态颜色
+const getStatusColor = (status) => {
+  const colorMap = {
+    'up': 'green',
+    'down': 'red',
+    'empty': 'orange',
+    'unknown': 'gray'
+  }
+  return colorMap[status] || 'gray'
+}
+
+// 获取状态文本
+const getStatusText = (status) => {
+  const textMap = {
+    'up': '运行中',
+    'down': '已停止',
+    'empty': '无端口',
+    'unknown': '未知'
+  }
+  return textMap[status] || '未知'
 }
 
 onMounted(fetchBridges)
